@@ -1,0 +1,317 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <base target="_self">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FOKSI - Absensi Forum OSIS MPK Sukabumi</title>
+    <meta name="description" content="Sistem absensi digital untuk Forum OSIS MPK Sukabumi">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#dc2626",
+                        "primary-dark": "#b91c1c",
+                        "primary-light": "#f87171",
+                        secondary: "#1f2937",
+                        accent: "#f59e0b"
+                    },
+                    fontFamily: {
+                        'sans': ['Inter', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+        }
+        
+        .card-shadow {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        .hover-lift:hover {
+            transform: translateY(-2px);
+            transition: transform 0.2s ease;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50">
+    <!-- Auth Modal -->
+    <div id="authModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl max-w-md w-full p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-800">Login FOKSI</h2>
+                <button onclick="closeAuthModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div id="loginForm">
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-medium mb-2">Email</label>
+                    <input type="email" id="email" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="email@example.com">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-medium mb-2">Password</label>
+                    <input type="password" id="password" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="••••••••">
+                </div>
+                <button onclick="login()" class="w-full gradient-bg text-white py-3 rounded-lg font-medium hover:opacity-90 transition">
+                    <i class="fas fa-sign-in-alt mr-2"></i>Login
+                </button>
+                <p class="text-center text-gray-600 text-sm mt-4">
+                    Hubungi admin untuk mendapatkan akun
+                </p>
+            </div>
+            
+            <div id="userInfo" class="hidden">
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 gradient-bg rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-user text-white text-2xl"></i>
+                    </div>
+                    <h3 id="userName" class="text-xl font-semibold text-gray-800"></h3>
+                    <p id="userEmail" class="text-gray-600"></p>
+                    <p id="userRole" class="text-primary font-medium mt-2"></p>
+                </div>
+                <button onclick="logout()" class="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-200 transition">
+                    <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="gradient-bg text-white shadow-lg">
+        <nav class="container mx-auto px-4 py-4">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center">
+                        <i class="fas fa-users text-primary text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold">FOKSI</h1>
+                        <p class="text-sm text-primary-light">Forum OSIS MPK Sukabumi</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <div id="userStatus" class="hidden">
+                        <span id="currentUser" class="text-sm"></span>
+                        <button onclick="toggleAuthModal()" class="ml-4 bg-white text-primary px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-100">
+                            <i class="fas fa-user mr-2"></i>Profile
+                        </button>
+                    </div>
+                    <button id="loginBtn" onclick="toggleAuthModal()" class="bg-white text-primary px-4 py-2 rounded-lg font-medium hover:bg-gray-100">
+                        <i class="fas fa-sign-in-alt mr-2"></i>Login
+                    </button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- Admin Dashboard (Hidden by default) -->
+        <div id="adminDashboard" class="hidden">
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">Dashboard Admin</h2>
+                <p class="text-gray-600">Kelola jadwal, data anggota, dan ekspor laporan</p>
+            </div>
+            
+            <!-- Admin Tabs -->
+            <div class="mb-8">
+                <div class="border-b border-gray-200">
+                    <nav class="flex space-x-8">
+                        <button onclick="showAdminTab('jadwal')" id="tabJadwal" class="py-2 px-1 border-b-2 border-primary text-primary font-medium">
+                            <i class="fas fa-calendar-alt mr-2"></i>Jadwal
+                        </button>
+                        <button onclick="showAdminTab('data')" id="tabData" class="py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium">
+                            <i class="fas fa-database mr-2"></i>Data Anggota
+                        </button>
+                        <button onclick="showAdminTab('export')" id="tabExport" class="py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium">
+                            <i class="fas fa-file-export mr-2"></i>Export Data
+                        </button>
+                    </nav>
+                </div>
+            </div>
+            
+            <!-- Jadwal Tab -->
+            <div id="jadwalTab" class="admin-tab">
+                <div class="bg-white rounded-xl card-shadow p-6 mb-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Atur Jadwal Pertemuan</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-gray-700 text-sm font-medium mb-2">Tanggal Pertemuan</label>
+                            <input type="date" id="meetingDate" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 text-sm font-medium mb-2">Waktu</label>
+                            <input type="time" id="meetingTime" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-gray-700 text-sm font-medium mb-2">Agenda</label>
+                            <textarea id="meetingAgenda" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Agenda pertemuan..."></textarea>
+                        </div>
+                    </div>
+                    <button onclick="saveSchedule()" class="mt-6 gradient-bg text-white px-6 py-2 rounded-lg font-medium hover:opacity-90 transition">
+                        <i class="fas fa-save mr-2"></i>Simpan Jadwal
+                    </button>
+                </div>
+                
+                <div class="bg-white rounded-xl card-shadow p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Jadwal Mendatang</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="py-3 px-4 text-left text-sm font-medium text-gray-700">Tanggal</th>
+                                    <th class="py-3 px-4 text-left text-sm font-medium text-gray-700">Waktu</th>
+                                    <th class="py-3 px-4 text-left text-sm font-medium text-gray-700">Agenda</th>
+                                    <th class="py-3 px-4 text-left text-sm font-medium text-gray-700">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="scheduleList" class="divide-y divide-gray-200">
+                                <!-- Schedule items will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Data Anggota Tab -->
+            <div id="dataTab" class="admin-tab hidden">
+                <div class="bg-white rounded-xl card-shadow p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-lg font-semibold text-gray-800">Data Anggota FOKSI</h3>
+                        <button onclick="addMember()" class="gradient-bg text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
+                            <i class="fas fa-plus mr-2"></i>Tambah Anggota
+                        </button>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="py-3 px-4 text-left text-sm font-medium text-gray-700">Nama</th>
+                                    <th class="py-3 px-4 text-left text-sm font-medium text-gray-700">Jabatan</th>
+                                    <th class="py-3 px-4 text-left text-sm font-medium text-gray-700">Regional</th>
+                                    <th class="py-3 px-4 text-left text-sm font-medium text-gray-700">SMA</th>
+                                    <th class="py-3 px-4 text-left text-sm font-medium text-gray-700">Status</th>
+                                    <th class="py-3 px-4 text-left text-sm font-medium text-gray-700">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="memberList" class="divide-y divide-gray-200">
+                                <!-- Member data will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Export Tab -->
+            <div id="exportTab" class="admin-tab hidden">
+                <div class="bg-white rounded-xl card-shadow p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-6">Export Data Absensi</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div class="border border-gray-200 rounded-lg p-6 hover-lift">
+                            <div class="text-center">
+                                <div class="w-12 h-12 gradient-bg rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-file-excel text-white text-xl"></i>
+                                </div>
+                                <h4 class="font-semibold text-gray-800 mb-2">Export ke Excel</h4>
+                                <p class="text-gray-600 text-sm mb-4">Export data absensi ke format Excel (.xlsx)</p>
+                                <button onclick="exportToExcel()" class="gradient-bg text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
+                                    <i class="fas fa-download mr-2"></i>Download Excel
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="border border-gray-200 rounded-lg p-6 hover-lift">
+                            <div class="text-center">
+                                <div class="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-file-csv text-white text-xl"></i>
+                                </div>
+                                <h4 class="font-semibold text-gray-800 mb-2">Export ke CSV</h4>
+                                <p class="text-gray-600 text-sm mb-4">Export data absensi ke format CSV</p>
+                                <button onclick="exportToCSV()" class="bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-600">
+                                    <i class="fas fa-download mr-2"></i>Download CSV
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 rounded-lg p-6">
+                        <h4 class="font-semibold text-gray-800 mb-4">Filter Data</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-gray-700 text-sm font-medium mb-2">Regional</label>
+                                <select id="filterRegional" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                    <option value="">Semua Regional</option>
+                                    <option value="1">Regional 1</option>
+                                    <option value="2">Regional 2</option>
+                                    <option value="3">Regional 3</option>
+                                    <option value="4">Regional 4</option>
+                                    <option value="5">Regional 5</option>
+                                    <option value="6">Regional 6</option>
+                                    <option value="7">Regional 7</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 text-sm font-medium mb-2">Tanggal Mulai</label>
+                                <input type="date" id="filterStartDate" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 text-sm font-medium mb-2">Tanggal Akhir</label>
+                                <input type="date" id="filterEndDate" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                            </div>
+                        </div>
+                        <button onclick="applyFilter()" class="mt-4 gradient-bg text-white px-6 py-2 rounded-lg font-medium hover:opacity-90">
+                            <i class="fas fa-filter mr-2"></i>Terapkan Filter
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Member Dashboard (Hidden by default) -->
+        <div id="memberDashboard" class="hidden">
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">Dashboard Anggota</h2>
+                <p class="text-gray-600">Absensi dan riwayat kehadiran</p>
+            </div>
+            
+            <!-- Current Meeting Info -->
+            <div class="bg-white rounded-xl card-shadow p-6 mb-8">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Pertemuan Saat Ini</h3>
+                <div id="currentMeeting" class="text-center py-8">
+                    <p class="text-gray-500">Tidak ada jadwal pertemuan hari ini</p>
+                </div>
+            </div>
+            
+            <!-- Attendance Form -->
+            <div class="bg-white rounded-xl card-shadow p-6 mb-8">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Absensi</h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <button onclick="submitAttendance('H')" class="bg-green-100 text-green-700 py-4 rounded-lg font-medium hover:bg-green-200 transition hover-lift">
+                        <i class="fas fa-check-circle text-2xl mb-2"></i>
+                        <div>Hadir (H)</div>
+                    </button>
+                    <button onclick="submitAttendance('I')" class="bg-yellow-100 text-yellow-700 py-4 rounded-lg font-medium hover:bg-yellow-200 transition hover-lift">
+                        <i class="fas fa-clock text-2xl mb-2"></i>
+                        <div>Izin (I)</div>
+                    </button>
+                    <button onclick="submitAttendance('A')" class="bg-red-100 text-red-700 py-
